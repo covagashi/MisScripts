@@ -1,0 +1,91 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using System.Threading;
+using System.Threading.Tasks;
+using Eplan.EplApi.ApplicationFramework;
+using Eplan.EplApi.Base;
+using Eplan.EplApi.Scripting;
+
+class Program
+{
+    [Start]
+    public void Action()
+    {
+        var pages = GetPagesWithProperty7();
+        MessageBox.Show("El proyecto tiene " + pages.Count + " páginas con propiedad 7.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+        if (pages.Count > 0)
+        {
+            try
+            {
+                DeletePages(pages);
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show("Se produjo un error: " + exception.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        else
+        {
+            MessageBox.Show("No se encontraron páginas para eliminar.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
+    private static List<string> GetPagesWithProperty7()
+    {
+        var allPages = GetAllPages();
+        return allPages.Where(page => GetPagePropertyValue(page) == "7").ToList();
+    }
+
+    private static string[] GetAllPages()
+    {
+        ActionCallingContext actionCallingContext = new ActionCallingContext();
+        string pagesString = string.Empty;
+        actionCallingContext.AddParameter("TYPE", "PAGES");
+        new CommandLineInterpreter().Execute("selectionset", actionCallingContext);
+        actionCallingContext.GetParameter("PAGES", ref pagesString);
+        return pagesString.Split(';');
+    }
+
+    private static string GetPagePropertyValue(string page)
+    {
+        ActionCallingContext acc = new ActionCallingContext();
+        acc.AddParameter("PropertyId", "11006");
+        acc.AddParameter("PageName", page);
+        new CommandLineInterpreter().Execute("XEsGetPagePropertyAction", acc);
+        string propertyValue = "";
+        acc.GetParameter("PropertyValue", ref propertyValue);
+        return propertyValue;
+    }
+
+    private void DeletePages(List<string> pages)
+    {
+        // Seleccionar todas las páginas a eliminar
+        ActionCallingContext acc = new ActionCallingContext();
+        acc.AddParameter("PageNames", string.Join(";", pages));
+        new CommandLineInterpreter().Execute("XGedSelectPageAction", acc);
+
+        // Eliminar las páginas seleccionadas
+        Parallel.Invoke(
+            () =>
+            {
+                new CommandLineInterpreter().Execute("XPmExternalDeletePages");
+            },
+            () =>
+            {
+                Thread.Sleep(750);
+                Simular();
+            }
+        );
+    }
+
+    private void Simular()
+    {
+        Thread.Sleep(10);
+        SendKeys.SendWait("{TAB}");  // Moverse al botón "Sí para todos"
+        Thread.Sleep(10);
+        SendKeys.SendWait("{ENTER}");
+    }
+}
