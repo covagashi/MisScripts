@@ -1,91 +1,56 @@
 using System;
-using System.Linq;
-using System.Collections.Generic;
+using System.Text;
 using System.Windows.Forms;
-using System.Threading;
-using System.Threading.Tasks;
 using Eplan.EplApi.ApplicationFramework;
-using Eplan.EplApi.Base;
 using Eplan.EplApi.Scripting;
 
-class Program
+public class Class
 {
     [Start]
-    public void Action()
+    public void Function()
     {
-        var pages = GetPagesWithProperty7();
-        MessageBox.Show("El proyecto tiene " + pages.Count + " páginas con propiedad 7.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-        if (pages.Count > 0)
-        {
-            try
-            {
-                DeletePages(pages);
-            }
-            catch (Exception exception)
-            {
-                MessageBox.Show("Se produjo un error: " + exception.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        else
-        {
-            MessageBox.Show("No se encontraron páginas para eliminar.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
+        string[] pages = GetPages();
+        ProcessAllPages(pages);
     }
 
-    private static List<string> GetPagesWithProperty7()
-    {
-        var allPages = GetAllPages();
-        return allPages.Where(page => GetPagePropertyValue(page) == "7").ToList();
-    }
-
-    private static string[] GetAllPages()
-    {
-        ActionCallingContext actionCallingContext = new ActionCallingContext();
-        string pagesString = string.Empty;
-        actionCallingContext.AddParameter("TYPE", "PAGES");
-        new CommandLineInterpreter().Execute("selectionset", actionCallingContext);
-        actionCallingContext.GetParameter("PAGES", ref pagesString);
-        return pagesString.Split(';');
-    }
-
-    private static string GetPagePropertyValue(string page)
+    private static string[] GetPages()
     {
         ActionCallingContext acc = new ActionCallingContext();
-        acc.AddParameter("PropertyId", "11006");
+        string pagesString = string.Empty;
+        acc.AddParameter("TYPE", "PAGES");
+        new CommandLineInterpreter().Execute("selectionset", acc);
+        acc.GetParameter("PAGES", ref pagesString);
+        return pagesString.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    private void ProcessAllPages(string[] pages)
+    {
+        if (pages.Length == 0)
+        {
+            MessageBox.Show("Pages not found.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        StringBuilder resultBuilder = new StringBuilder();
+        resultBuilder.AppendLine("Property value of 11006:");
+
+        foreach (string page in pages)
+        {
+            string pageProperty = GetPageProperty(page);
+            resultBuilder.AppendLine("Page " + page + ": " + pageProperty);
+        }
+
+        MessageBox.Show(resultBuilder.ToString(), "Properties of pages", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private string GetPageProperty(string page)
+    {
+        ActionCallingContext acc = new ActionCallingContext();
         acc.AddParameter("PageName", page);
+        acc.AddParameter("PropertyId", "11006");
         new CommandLineInterpreter().Execute("XEsGetPagePropertyAction", acc);
         string propertyValue = "";
         acc.GetParameter("PropertyValue", ref propertyValue);
         return propertyValue;
-    }
-
-    private void DeletePages(List<string> pages)
-    {
-        // Seleccionar todas las páginas a eliminar
-        ActionCallingContext acc = new ActionCallingContext();
-        acc.AddParameter("PageNames", string.Join(";", pages));
-        new CommandLineInterpreter().Execute("XGedSelectPageAction", acc);
-
-        // Eliminar las páginas seleccionadas
-        Parallel.Invoke(
-            () =>
-            {
-                new CommandLineInterpreter().Execute("XPmExternalDeletePages");
-            },
-            () =>
-            {
-                Thread.Sleep(750);
-                Simular();
-            }
-        );
-    }
-
-    private void Simular()
-    {
-        Thread.Sleep(10);
-        SendKeys.SendWait("{TAB}");  // Moverse al botón "Sí para todos"
-        Thread.Sleep(10);
-        SendKeys.SendWait("{ENTER}");
     }
 }
