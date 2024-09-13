@@ -1,56 +1,77 @@
 using System;
-using System.Text;
+using System.Diagnostics;
+using System.Threading;
 using System.Windows.Forms;
 using Eplan.EplApi.ApplicationFramework;
+using Eplan.EplApi.Base;
 using Eplan.EplApi.Scripting;
-
-public class Class
+class Program
 {
     [Start]
-    public void Function()
+    public void Action()
     {
-        string[] pages = GetPages();
-        ProcessAllPages(pages);
+        // Get selected pages
+        var pages = GetPages();
+        // Setup progressbar
+        Progress progress = new Progress("EnhancedProgress");
+        progress.SetTitle("Do Something with pages");
+        progress.SetAllowCancel(true);
+        progress.ShowImmediately();
+        progress.SetNeededSteps(pages.Length + 1);
+        try
+        {
+            // Do something with pages
+            foreach (var page in pages)
+            {
+                progress.SetActionText(page);
+                progress.Step(1);
+                SelectPage();
+               
+            }
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            progress.EndPart(true);
+        }
     }
-
     private static string[] GetPages()
     {
-        ActionCallingContext acc = new ActionCallingContext();
+        ActionCallingContext actionCallingContext = new ActionCallingContext();
         string pagesString = string.Empty;
-        acc.AddParameter("TYPE", "PAGES");
-        new CommandLineInterpreter().Execute("selectionset", acc);
-        acc.GetParameter("PAGES", ref pagesString);
-        return pagesString.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+        actionCallingContext.AddParameter("TYPE", "PAGES");
+        new CommandLineInterpreter().Execute("selectionset", actionCallingContext);
+        actionCallingContext.GetParameter("PAGES", ref pagesString);
+        string[] pages = pagesString.Split(';');
+        return pages;
     }
-
-    private void ProcessAllPages(string[] pages)
-    {
-        if (pages.Length == 0)
-        {
-            MessageBox.Show("Pages not found.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        StringBuilder resultBuilder = new StringBuilder();
-        resultBuilder.AppendLine("Property value of 11006:");
-
-        foreach (string page in pages)
-        {
-            string pageProperty = GetPageProperty(page);
-            resultBuilder.AppendLine("Page " + page + ": " + pageProperty);
-        }
-
-        MessageBox.Show(resultBuilder.ToString(), "Properties of pages", MessageBoxButtons.OK, MessageBoxIcon.Information);
-    }
-
-    private string GetPageProperty(string page)
+    private void SelectPage()
     {
         ActionCallingContext acc = new ActionCallingContext();
-        acc.AddParameter("PageName", page);
         acc.AddParameter("PropertyId", "11006");
+        
         new CommandLineInterpreter().Execute("XEsGetPagePropertyAction", acc);
+
         string propertyValue = "";
         acc.GetParameter("PropertyValue", ref propertyValue);
-        return propertyValue;
+
+        MessageBox.Show("Valor de la propiedad 11006: " + propertyValue);
+        propertyValue = "";
     }
 }
+//using (var qm = new QuietModeStep(QuietModes.ShowNoDialogs))
+//{
+//    new CommandLineInterpreter().Execute("XPmExternalDeletePages");
+//}
+
+
+
+
+
+
+
+
+
