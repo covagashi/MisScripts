@@ -25,8 +25,7 @@ class Program
             {
                 progress.SetActionText(page);
                 progress.Step(1);
-                SelectPage();
-               
+                SelectPage(page);
             }
         }
         catch (Exception exception)
@@ -40,32 +39,36 @@ class Program
     }
     private static string[] GetPages()
     {
-        ActionCallingContext actionCallingContext = new ActionCallingContext();
+        ActionCallingContext oACC = new ActionCallingContext();
         string pagesString = string.Empty;
-        actionCallingContext.AddParameter("TYPE", "PAGES");
-        new CommandLineInterpreter().Execute("selectionset", actionCallingContext);
-        actionCallingContext.GetParameter("PAGES", ref pagesString);
+        oACC.AddParameter("TYPE", "PAGES");
+        new CommandLineInterpreter().Execute("selectionset", oACC);
+        oACC.GetParameter("PAGES", ref pagesString);
         string[] pages = pagesString.Split(';');
         return pages;
     }
-    private void SelectPage()
+    private void SelectPage(string page)
     {
-        ActionCallingContext acc = new ActionCallingContext();
-        acc.AddParameter("PropertyId", "11006");
-        
-        new CommandLineInterpreter().Execute("XEsGetPagePropertyAction", acc);
-
+        ActionCallingContext oACC = new ActionCallingContext();
+        CommandLineInterpreter oCLI = new CommandLineInterpreter();
+        oACC.AddParameter("PAGENAME", page);
+        oCLI.Execute("edit", oACC);
+        oACC.AddParameter("PropertyId", "11006");
+        oCLI.Execute("XEsGetPagePropertyAction", oACC);
         string propertyValue = "";
-        acc.GetParameter("PropertyValue", ref propertyValue);
+        oACC.GetParameter("PropertyValue", ref propertyValue);        
 
-        MessageBox.Show("Valor de la propiedad 11006: " + propertyValue);
-        propertyValue = "";
+        if (string.Equals(propertyValue, "7", StringComparison.OrdinalIgnoreCase))
+        {
+            using (var qm = new QuietModeStep(QuietModes.ShowNoDialogs))
+            {
+                new CommandLineInterpreter().Execute("XPmExternalDeletePages");
+            }
+        }
+        oCLI.Execute("XGedClosePage");
     }
 }
-//using (var qm = new QuietModeStep(QuietModes.ShowNoDialogs))
-//{
-//    new CommandLineInterpreter().Execute("XPmExternalDeletePages");
-//}
+
 
 
 
